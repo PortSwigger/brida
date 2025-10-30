@@ -9,5 +9,5 @@ ProOnly: False
 Author: Federico Dotta, Piergiovanni Cipolloni
 ShortDescription: A bridge between Burp Suite and Frida to help test Android applications.
 EntryPoint: target/Brida-0.5-jar-with-dependencies.jar
-BuildCommand: ./build.sh
+BuildCommand: ./gradlew build
 SupportedProducts: Pro, Community
