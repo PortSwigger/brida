@@ -1,3 +1,12 @@
+<<<<<<< HEAD
 *.jar
 .gradle
 target/
+=======
+/.idea/
+/.gradle/
+/build/
+/gradle/
+/gradlew
+/gradlew.bat
+>>>>>>> f3350346c10713a0bb558b9bc018a0c0e250479d

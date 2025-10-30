@@ -1,19 +1,21 @@
+import Java from 'frida-java-bridge';
+
 module.exports = {
-	androidpinningwithca1, androidpinningwithoutca1, androidrooting1, 
-    androidfingerprintbypass1, androidfingerprintbypass2hook, 
-    androidfingerprintbypass2function, tracekeystore, listaliasesstatic, 
+	androidpinningwithca1, androidpinningwithoutca1, androidrooting1,
+    androidfingerprintbypass1, androidfingerprintbypass2hook,
+    androidfingerprintbypass2function, tracekeystore, listaliasesstatic,
     listaliasesruntime, dumpcryptostuff, okhttphostnameverifier
 }
 
 function okhttphostnameverifier() {
-	
+
     Java.perform(function() {
-        
+
         var HostnameVerifierInterface = Java.use('javax.net.ssl.HostnameVerifier')
         const MyHostnameVerifier = Java.registerClass({
           name: 'org.dummyPackage.MyHostnameVerifier',
           implements: [HostnameVerifierInterface],
-          methods: {  
+          methods: {
             verify: [{
               returnType: 'boolean',
               argumentTypes: ['java.lang.String', 'javax.net.ssl.SSLSession'],
@@ -21,7 +23,7 @@ function okhttphostnameverifier() {
                 console.log('[+] Hostname verification bypass');
                 return true;
               }
-            }],      
+            }],
           }
         });
 
@@ -51,14 +53,14 @@ function androidpinningwithca1() {
 	    // Load CAs from an InputStream
 	    console.log("[+] Loading our CA...")
 	    var cf = CertificateFactory.getInstance("X.509");
-	    
+
 	    try {
 	    	var fileInputStream = FileInputStream.$new("/data/local/tmp/cert-der.crt");
 	    }
 	    catch(err) {
 	    	console.log("[o] " + err);
 	    }
-	    
+
 	    var bufferedInputStream = BufferedInputStream.$new(fileInputStream);
 	  	var ca = cf.generateCertificate(bufferedInputStream);
 	    bufferedInputStream.close();
@@ -72,7 +74,7 @@ function androidpinningwithca1() {
 	    var keyStore = KeyStore.getInstance(keyStoreType);
 	    keyStore.load(null, null);
 	    keyStore.setCertificateEntry("ca", ca);
-	    
+
 	    // Create a TrustManager that trusts the CAs in our KeyStore
 	    console.log("[+] Creating a TrustManager that trusts the CA in our KeyStore...");
 	    var tmfAlgorithm = TrustManagerFactory.getDefaultAlgorithm();
@@ -128,7 +130,7 @@ function androidpinningwithoutca1() {
 	        console.log('[+] Setup custom TrustManager (Android < 7)');
 	    } catch (err) {
 	        console.log('[-] TrustManager (Android < 7) pinner not found');
-	    }			
+	    }
 
 		auxiliary_android_pinning_hooks();
 
@@ -177,7 +179,7 @@ function androidrooting1() {
 	    var StringBuffer = Java.use('java.lang.StringBuffer');
 
 	    var loaded_classes = Java.enumerateLoadedClassesSync();
-	    
+
 	    console.log("Loaded " + loaded_classes.length + " classes!");
 
 	    var useKeyInfo = false;
@@ -352,14 +354,16 @@ function androidrooting1() {
 	        return this.get.call(this, name);
 	    };
 
-	    Interceptor.attach(Module.findExportByName("libc.so", "fopen"), {
+	    Interceptor.attach(Process.getModuleByName('libc.so').findExportByName('fopen'), {
 	        onEnter: function(args) {
-	            var path = Memory.readCString(args[0]);
+	            //var path = Memory.readCString(args[0]);
+	        		var path = ptr(args[0]).readCString();
 	            path = path.split("/");
 	            var executable = path[path.length - 1];
 	            var shouldFakeReturn = (RootBinaries.indexOf(executable) > -1)
 	            if (shouldFakeReturn) {
-	                Memory.writeUtf8String(args[0], "/notexists");
+	                //Memory.writeUtf8String(args[0], "/notexists");
+	                ptr(args[0]).writeUtf8String("/notexists");
 	                console.log("Bypass native fopen");
 	            }
 	        },
@@ -368,17 +372,20 @@ function androidrooting1() {
 	        }
 	    });
 
-	    Interceptor.attach(Module.findExportByName("libc.so", "system"), {
+	    Interceptor.attach(Process.getModuleByName('libc.so').findExportByName('system'), {
 	        onEnter: function(args) {
-	            var cmd = Memory.readCString(args[0]);
+	            //var cmd = Memory.readCString(args[0]);
+	            var cmd = ptr(args[0]).readCString();
 	            console.log("SYSTEM CMD: " + cmd);
 	            if (cmd.indexOf("getprop") != -1 || cmd == "mount" || cmd.indexOf("build.prop") != -1 || cmd == "id") {
 	                console.log("Bypass native system: " + cmd);
-	                Memory.writeUtf8String(args[0], "grep");
+	                //Memory.writeUtf8String(args[0], "grep");
+	                ptr(args[0]).writeUtf8String("grep");
 	            }
 	            if (cmd == "su") {
 	                console.log("Bypass native system: " + cmd);
-	                Memory.writeUtf8String(args[0], "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled");
+	                //Memory.writeUtf8String(args[0], "justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled");
+	                ptr(args[0]).writeUtf8String("justafakecommandthatcannotexistsusingthisshouldthowanexceptionwheneversuiscalled");
 	            }
 	        },
 	        onLeave: function(retval) {
@@ -694,10 +701,10 @@ function androidfingerprintbypass2hook() {
 	        var cryptoInst = cryptoObj.$new(sweet_cipher);
 	        
 	        var authenticationResultObj = Java.use('android.hardware.biometrics.BiometricPrompt$AuthenticationResult');
-	        global.authenticationResultInst = authenticationResultObj.$new(cryptoInst,null,0);
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(cryptoInst,null,0));
 	        console.log("cryptoInst:, " + cryptoInst + " class: "+ cryptoInst.$className);
 
-	        callback.onAuthenticationSucceeded(authenticationResultInst);  
+	        callback.onAuthenticationSucceeded(globalThis.authenticationResultInst);
 	        //return this.authenticate(cancellationSignal,executor,callback);
 	    }   
 
@@ -713,10 +720,10 @@ function androidfingerprintbypass2hook() {
 
 	        
 	        var authenticationResultObj = Java.use('android.hardware.biometrics.BiometricPrompt$AuthenticationResult');
-	        global.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        global.callbackG = callback; 
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(crypto,null,0));
+	        globalThis.callbackG = Java.retain(callback);
 
-	        //callback.onAuthenticationSucceeded(authenticationResultInst);
+	        //callback.onAuthenticationSucceeded(globalThis.authenticationResultInst);
 
 	        return this.authenticate(crypto,cancellationSignal,executor,callback);
 	    }   
@@ -759,8 +766,8 @@ function androidfingerprintbypass2hook() {
 	           
 	        }   
 	        
-	        global.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        global.callbackG = callback; 
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(crypto,null,0));
+	        globalThis.callbackG = Java.retain(callback);
 
 	        return this.authenticate(crypto,flags, cancel, callback, handler);
 	    }   
@@ -795,8 +802,8 @@ function androidfingerprintbypass2hook() {
 	    fingerprintManager_authenticate.implementation = function(crypto,cancel, flags, callback, handler) {
 	        console.log("[FingerprintManager.authenticate()]: crypto: " + crypto + ", flags: "+ flags + ", cancel:" + cancel + ", callback: " + callback + ", handler: "+ handler );
 	        
-	        global.authenticationResultInst = authenticationResultObj.$new(crypto,null,0);
-	        global.callbackG = callback;
+	        globalThis.authenticationResultInst = Java.retain(authenticationResultObj.$new(crypto,null,0));
+	        globalThis.callbackG = Java.retain(callback);
 
 	        return this.authenticate(crypto, cancel,flags, callback, handler);
 	    }   
@@ -1110,7 +1117,7 @@ function androidfingerprintbypass2function() {
                         {
                             try
                             { 
-                                callbackG.onAuthenticationSucceeded(authenticationResultInst); // we just need to call this single line (other code is needed to call this on UI thread)
+                                globalThis.callbackG.onAuthenticationSucceeded(globalThis.authenticationResultInst); // we just need to call this single line (other code is needed to call this on UI thread)
                             } 
                             catch (error)
                             {
@@ -1160,7 +1167,7 @@ function tracekeystore() {
 	});
 	console.log("KeyStore hooks loaded!");
 
-	global.keystoreList = [];
+	globalThis.keystoreList = [];
 	var StringCls = null;
 	Java.perform(function () {
 		StringCls = Java.use('java.lang.String');
@@ -1184,7 +1191,7 @@ function tracekeystore() {
 			//console.log("[Call] Keystore.getInstance(java.lang.String )")
 			console.log("[Keystore.getInstance()]: type: " + type);
 			var tmp = this.getInstance(type);
-			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			globalThis.keystoreList.push(Java.retain(tmp)); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1194,8 +1201,8 @@ function tracekeystore() {
 		keyStoreGetInstance.implementation = function (type, provider) {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.lang.String )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
-			var tmp = this.getInstance(type, proivder);
-			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			var tmp = this.getInstance(type, provider);
+			globalThis.keystoreList.push(Java.retain(tmp)); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1205,8 +1212,8 @@ function tracekeystore() {
 		keyStoreGetInstance.implementation = function (type, provider) {
 			//console.log("[Call] Keystore.getInstance(java.lang.String, java.security.Provider )")
 			console.log("[Keystore.getInstance2()]: type: " + type + ", provider: " + provider);
-			var tmp = this.getInstance(type, proivder);
-			global.keystoreList.push(tmp); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
+			var tmp = this.getInstance(type, provider);
+			globalThis.keystoreList.push(Java.retain(tmp)); // Collect keystore objects to allow dump them later using ListAliasesRuntime()
 			return tmp;
 		}
 	}
@@ -1345,12 +1352,12 @@ function listaliasesstatic() {
 
 /*
 * Dump all aliasses in keystores of all instances obtained during app runtime. 
-* Instances that will be dumped are collected via hijacking Keystre.getInstance() -> hookKeystoreGetInstance()
+* Instances that will be dumped are collected via hijacking Keystore.getInstance() -> hookKeystoreGetInstance()
 */
 function listaliasesruntime() {
 	Java.perform(function () {
-		console.log("[ListAliasesRuntime] Instances: " + keystoreList);
-		keystoreList.forEach(function (entry) {
+		console.log("[ListAliasesRuntime] Instances: " + globalThis.keystoreList);
+		globalThis.keystoreList.forEach(function (entry) {
 			console.log("[ListAliasesRuntime] keystoreObj: " + entry + " type: " + entry.getType() + " \n" + ListAliasesObj(entry));
 		});
 	});
@@ -2148,9 +2155,9 @@ function ListAliasesObj(obj) {
 function GetKeyStore(keystoreName) {
 	var result = null;
 	Java.perform(function () {
-		for (var i = 0; i < keystoreList.length; i++) {
-			if (keystoreName.localeCompare("" + keystoreList[i]) == 0)
-				result = keystoreList[i];
+		for (var i = 0; i < globalThis.keystoreList.length; i++) {
+			if (keystoreName.localeCompare("" + globalThis.keystoreList[i]) == 0)
+				result = globalThis.keystoreList[i];
 		}
 	});
 	return result;
