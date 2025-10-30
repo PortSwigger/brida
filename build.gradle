@@ -1,41 +1,33 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
+
+group = 'org.fd.brida'
+version = '0.6'
 
 repositories {
     mavenCentral()
-    mavenLocal() 
 }
-
-targetCompatibility = 1.8
-sourceCompatibility = 1.8
 
 dependencies {
-    compile 'net.portswigger.burp.extender:burp-extender-api:1.7.22'
-    compile group: 'commons-io', name: 'commons-io', version: '2.5'
-    compile group: 'org.apache.commons', name: 'commons-lang3', version: '3.4'
-    compile group: 'net.razorvine', name: 'pyrolite', version: '4.19'
-    compile group: 'net.razorvine', name: 'serpent', version: '1.18'
-    compile group: 'com.fifesoft', name: 'rsyntaxtextarea', version: '3.0.0-SNAPSHOT'
+    implementation 'net.portswigger.burp.extender:burp-extender-api:+'
+    implementation 'org.apache.commons:commons-lang3:3.7'
+    implementation 'commons-codec:commons-codec:1.14'
+    implementation 'org.json:json:20171018'
+    implementation 'net.razorvine:pyrolite:4.30'
+    implementation 'net.razorvine:serpent:1.23'
+    implementation files('libs/rsyntaxtextarea-2.6.1.edited.jar')
 }
 
-sourceSets {
-    main {
-        java {
-            srcDir 'src'
-        }
-        resources {
-            srcDir 'res'
-        }
-    }
-}
+
 
 jar {
-  into 'res', {
-    from 'res'
-  }
-}
-
-task fatJar(type: Jar) {
-    baseName = project.name + '-all'
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
-    with jar
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    from('res') {
+        include '*'
+        into("res")
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

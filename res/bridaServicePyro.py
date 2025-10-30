@@ -72,6 +72,9 @@ class BridaServicePyro:
 
         self.pid = self.device.spawn([self.application_id])
 
+        # Spawn and launch a specified activity
+        #self.pid = self.device.spawn([self.application_id],activity="com.test.myApp.myActivity")
+
         self.session = self.device.attach(self.pid)
 
         with codecs.open(self.frida_script, 'r', 'utf-8') as f:
@@ -109,7 +112,7 @@ class BridaServicePyro:
         return
 
     def callexportfunction(self, methodName, args):
-        method_to_call = getattr(self.script.exports, methodName)
+        method_to_call = getattr(self.script.exports_sync, methodName)
 
         # Take the Java list passed as argument and create a new variable list of argument
         # (necessary for bridge Python - Java, I think)
