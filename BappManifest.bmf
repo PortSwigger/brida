@@ -3,11 +3,11 @@ ExtensionType: 1
 Name: Brida, Burp to Frida Bridge
 RepoName: brida
 ScreenVersion: 0.6.0
-SerialVersion: 21
+SerialVersion: 22
 MinPlatformVersion: 2
 ProOnly: False
 Author: Federico Dotta, Piergiovanni Cipolloni
 ShortDescription: A bridge between Burp Suite and Frida to help test Android applications.
-EntryPoint: BridaTestAppBackend-0.0.1-SNAPSHOT.jar
+EntryPoint: brida-0.6.jar
 BuildCommand: ./gradlew build
 SupportedProducts: Pro, Community
